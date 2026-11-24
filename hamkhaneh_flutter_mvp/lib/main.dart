@@ -121,7 +121,7 @@ class DashboardPage extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Text(
-                'اطلاعات این نسخه فقط روی همین دستگاه و در حافظهٔ موقت نگهداری می‌شود.'),
+                'اطلاعات این نسخه فقط روی همین دستگاه نگهداری می‌شود.'),
           ),
         const SizedBox(height: 12),
         Row(children: [
@@ -156,7 +156,11 @@ class DashboardPage extends StatelessWidget {
                   color: const Color(0xffa47786))),
         ]),
         const SizedBox(height: 20),
-        const SectionTitle('کارهای پیش‌رو'),
+        const Padding(
+          padding: EdgeInsets.only(bottom: 8),
+          child: Text('کارهای پیش‌رو',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: ink)),
+        ),
         ...s.tasks.where((t) => !t.done).take(3).map((t) => TaskTile(task: t)),
       ],
     );
@@ -185,4 +189,265 @@ class StatCard extends StatelessWidget {
                 Icon(icon, color: color),
                 const SizedBox(height: 12),
                 Text(title, style: const TextStyle(color: Colors.black54)),
-                const 
+                const SizedBox(height: 4),
+                Text(value,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 17,
+                        color: ink)),
+              ]),
+        ),
+      );
+}
+
+class TasksPage extends StatefulWidget {
+  const TasksPage({super.key});
+  @override
+  State<TasksPage> createState() => _TasksPageState();
+}
+
+class _TasksPageState extends State<TasksPage> {
+  String filter = 'همه';
+  @override
+  Widget build(BuildContext context) {
+    final s = context.watch<HouseholdStore>();
+    final list = s.tasks
+        .where((t) =>
+            filter == 'همه' || (filter == 'باز' ? !t.done : t.done))
+        .toList();
+    return Scaffold(
+      backgroundColor: cream,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => showDialog(
+            context: context, builder: (_) => const TaskDialog()),
+        icon: const Icon(Icons.add),
+        label: const Text('کار جدید'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text('فهرست کارهای خانه',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: ink)),
+          ),
+          Wrap(
+            spacing: 8,
+            children: ['همه', 'باز', 'انجام‌شده']
+                .map((f) => ChoiceChip(
+                    label: Text(f),
+                    selected: filter == f,
+                    onSelected: (_) => setState(() => filter = f)))
+                .toList(),
+          ),
+          const SizedBox(height: 8),
+          if (list.isEmpty)
+            const Center(
+                child: Padding(
+                    padding: EdgeInsets.all(30),
+                    child: Text('کاری در این فهرست نیست'))),
+          ...list.map((t) => TaskTile(task: t)),
+        ],
+      ),
+    );
+  }
+}
+
+class TaskTile extends StatelessWidget {
+  const TaskTile({super.key, required this.task});
+  final HomeTask task;
+  @override
+  Widget build(BuildContext context) => Card(
+        elevation: 0,
+        margin: const EdgeInsets.symmetric(vertical: 5),
+        child: CheckboxListTile(
+          value: task.done,
+          onChanged: (_) =>
+              context.read<HouseholdStore>().toggleTask(task),
+          controlAffinity: ListTileControlAffinity.leading,
+          title: Text(task.title,
+              style: TextStyle(
+                  decoration: task.done ? TextDecoration.lineThrough : null,
+                  fontWeight: FontWeight.w600)),
+          subtitle:
+              Text('${task.assignee}  •  ${task.category}  •  ${jdate(task.due)}'),
+          secondary: Icon(
+              task.priority == 'بالا'
+                  ? Icons.priority_high
+                  : Icons.task_alt,
+              color: task.priority == 'بالا' ? orange : green),
+        ),
+      );
+}
+
+class TaskDialog extends StatefulWidget {
+  const TaskDialog({super.key});
+  @override
+  State<TaskDialog> createState() => _TaskDialogState();
+}
+
+class _TaskDialogState extends State<TaskDialog> {
+  final form = GlobalKey<FormState>();
+  final title = TextEditingController(), notes = TextEditingController();
+  DateTime due = DateTime.now();
+  String assignee = 'من', category = 'خانه', priority = 'معمولی';
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('افزودن کار'),
+        content: SingleChildScrollView(
+          child: Form(
+            key: form,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextFormField(
+                  controller: title,
+                  decoration: const InputDecoration(labelText: 'عنوان کار'),
+                  validator: (v) =>
+                      v == null || v.trim().isEmpty ? 'عنوان را وارد کنید' : null),
+              TextFormField(
+                  controller: notes,
+                  decoration:
+                      const InputDecoration(labelText: 'یادداشت (اختیاری)')),
+              DropdownButtonFormField(
+                value: assignee,
+                decoration: const InputDecoration(labelText: 'مسئول'),
+                items: ['من', 'سارا', 'علی']
+                    .map((x) => DropdownMenuItem(value: x, child: Text(x)))
+                    .toList(),
+                onChanged: (v) => setState(() => assignee = v!),
+              ),
+              DropdownButtonFormField(
+                value: category,
+                decoration: const InputDecoration(labelText: 'دسته‌بندی'),
+                items: ['خانه', 'خرید', 'مالی', 'سایر']
+                    .map((x) => DropdownMenuItem(value: x, child: Text(x)))
+                    .toList(),
+                onChanged: (v) => setState(() => category = v!)),
+              DropdownButtonFormField(
+                value: priority,
+                decoration: const InputDecoration(labelText: 'اولویت'),
+                items: ['معمولی', 'بالا', 'کم']
+                    .map((x) => DropdownMenuItem(value: x, child: Text(x)))
+                    .toList(),
+                onChanged: (v) => setState(() => priority = v!)),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text('موعد: ${jdate(due)}'),
+                trailing: const Icon(Icons.calendar_month),
+                onTap: () async {
+                  final d = await showDatePicker(
+                    context: context,
+                    initialDate: due,
+                    firstDate: DateTime.now()
+                        .subtract(const Duration(days: 365)),
+                    lastDate:
+                        DateTime.now().add(const Duration(days: 3650)),
+                  );
+                  if (d != null) setState(() => due = d);
+                },
+              ),
+            ]),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('لغو')),
+          FilledButton(
+            onPressed: () {
+              if (form.currentState!.validate()) {
+                context.read<HouseholdStore>().addTask(
+                      HomeTask(
+                        title: title.text.trim(),
+                        notes: notes.text,
+                        assignee: assignee,
+                        due: due,
+                        category: category,
+                        priority: priority,
+                      ),
+                    );
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('ثبت کار'),
+          ),
+        ],
+      );
+}
+
+class ShoppingPage extends StatelessWidget {
+  const ShoppingPage({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final s = context.watch<HouseholdStore>();
+    return Scaffold(
+      backgroundColor: cream,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => showDialog(
+            context: context, builder: (_) => const ItemDialog()),
+        icon: const Icon(Icons.add),
+        label: const Text('افزودن قلم'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text('خریدهای این ماه',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: ink)),
+          ),
+          Card(
+            elevation: 0,
+            color: green,
+            child: ListTile(
+              leading:
+                  const Icon(Icons.receipt_long, color: Colors.white),
+              title: const Text('جمع خریدهای انجام‌شده',
+                  style: TextStyle(color: Colors.white)),
+              subtitle: Text(money(s.monthlySpend),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold)),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...s.items.map((x) => Card(
+                elevation: 0,
+                child: CheckboxListTile(
+                  value: x.purchased,
+                  onChanged: (_) => s.toggleItem(x),
+                  title: Text(x.name),
+                  subtitle: Text(
+                      '${x.quantity}  •  ${money(x.purchased ? x.actual : x.estimated)}${x.purchased ? ' (پرداخت‌شده)' : ''}'),
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+}
+
+class ItemDialog extends StatefulWidget {
+  const ItemDialog({super.key});
+  @override
+  State<ItemDialog> createState() => _ItemDialogState();
+}
+
+class _ItemDialogState extends State<ItemDialog> {
+  final name = TextEditingController();
+  final qty = TextEditingController(text: '۱ عدد');
+  final price = TextEditingController();
+  final keyForm = GlobalKey<FormState>();
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('افزودن به فهرست خرید'),
+        content: Form(
+          key: keyForm,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: name,
