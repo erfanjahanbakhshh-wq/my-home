@@ -1,37 +1,564 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shamsi_date/shamsi_date.dart';
 import 'config/app_config.dart';
 import 'state/household_store.dart';
 
-void main()=>runApp(ChangeNotifierProvider(create:(_)=>HouseholdStore(),child:const HamkhanehApp()));
-const ink=Color(0xff26352f), green=Color(0xff557a60), cream=Color(0xfff7f4ec), orange=Color(0xffdf9856);
-class HamkhanehApp extends StatelessWidget {const HamkhanehApp({super.key});
- @override Widget build(BuildContext context)=>MaterialApp(debugShowCheckedModeBanner:false,title:'هم‌خانه',
-  theme:ThemeData(useMaterial3:true,colorScheme:ColorScheme.fromSeed(seedColor:green,surface:cream),scaffoldBackgroundColor:cream,fontFamily:'Roboto',appBarTheme:const AppBarTheme(backgroundColor:cream,foregroundColor:ink)),
-  builder:(context,child)=>Directionality(textDirection:TextDirection.rtl,child:child!),home:const MainShell());}
-String jdate(DateTime d)=>Jalali.fromDateTime(d).toString();
-String money(num n)=>'${n.toStringAsFixed(0)} تومان';
-class MainShell extends StatefulWidget {const MainShell({super.key});@override State<MainShell> createState()=>_MainShellState();}
-class _MainShellState extends State<MainShell>{int tab=0;
- final pages=const [DashboardPage(),TasksPage(),ShoppingPage(),CalendarPage(),HousePage()];
- @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('هم‌خانه',style:TextStyle(fontWeight:FontWeight.w800)),actions:[if(AppConfig.demoMode)const Padding(padding:EdgeInsets.symmetric(horizontal:12),child:Center(child:Chip(avatar:Icon(Icons.wifi_off,size:16),label:Text('نسخهٔ نمایشی'))))]),body:pages[tab],
- bottomNavigationBar:NavigationBar(selectedIndex:tab,onDestinationSelected:(i)=>setState(()=>tab=i),destinations:const [NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'خانه'),NavigationDestination(icon:Icon(Icons.checklist),label:'کارها'),NavigationDestination(icon:Icon(Icons.shopping_basket_outlined),label:'خرید'),NavigationDestination(icon:Icon(Icons.calendar_month),label:'تقویم'),NavigationDestination(icon:Icon(Icons.people_outline),label:'خانه‌ما')]));}
-class DashboardPage extends StatelessWidget{const DashboardPage({super.key});
- @override Widget build(BuildContext context){final s=context.watch<HouseholdStore>();final now=DateTime.now();return ListView(padding:const EdgeInsets.all(18),children:[Text('سلام، به خانه خوش آمدی 🌿',style:Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight:FontWeight.bold,color:ink)),const SizedBox(height:5),Text('${s.homeName}  •  ${jdate(now)}',style:const TextStyle(color:Colors.black54)),const SizedBox(height:18),if(AppConfig.demoMode)Container(padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:const Color(0xffffefd9),borderRadius:BorderRadius.circular(14)),child:const Text('اطلاعات این نسخه فقط روی همین دستگاه و در حافظهٔ موقت نگهداری می‌شود.')),
- Row(children:[Expanded(child:StatCard(icon:Icons.today,title:'کارهای امروز',value:'${s.todayTasks} مورد',color:green)),const SizedBox(width:10),Expanded(child:StatCard(icon:Icons.payments_outlined,title:'خرج ماه',value:money(s.monthlySpend),color:orange))]),const SizedBox(height:10),Row(children:[Expanded(child:StatCard(icon:Icons.weekend_outlined,title:'کار آخر هفته',value:'${s.tasks.where((t)=>!t.done).length} کار باز',color:const Color(0xff7587a0))),const SizedBox(width:10),Expanded(child:StatCard(icon:Icons.people_alt_outlined,title:'اعضای خانه',value:'${s.members.length} نفر',color:const Color(0xffa47786)))]),const SizedBox(height:20),SectionTitle('کارهای پیش‌رو'),...s.tasks.where((t)=>!t.done).take(3).map((t)=>TaskTile(task:t)),const SizedBox(height:12),SectionTitle('حال خوب خانه'),Row(children:[Expanded(child:PlaceholderCard(icon:Icons.self_improvement,title:'مدیتیشن روزانه')),const SizedBox(width:10),Expanded(child:PlaceholderCard(icon:Icons.auto_awesome,title:'ذکر روز'))])]);}}
-class StatCard extends StatelessWidget{const StatCard({super.key,required this.icon,required this.title,required this.value,required this.color});final IconData icon;final String title,value;final Color color;@override Widget build(BuildContext c)=>Card(elevation:0,color:Colors.white,child:Padding(padding:const EdgeInsets.all(14),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Icon(icon,color:color),const SizedBox(height:12),Text(title,style:const TextStyle(color:Colors.black54)),const SizedBox(height:4),Text(value,style:const TextStyle(fontWeight:FontWeight.bold,fontSize:17,color:ink))])));}
-class PlaceholderCard extends StatelessWidget{const PlaceholderCard({super.key,required this.icon,required this.title});final IconData icon;final String title;@override Widget build(BuildContext c)=>Card(elevation:0,child:Padding(padding:const EdgeInsets.all(16),child:Column(children:[Icon(icon,color:green,size:28),const SizedBox(height:8),Text(title),const Text('به‌زودی',style:TextStyle(color:Colors.black45,fontSize:12))])));}
-class SectionTitle extends StatelessWidget{const SectionTitle(this.text,{super.key});final String text;@override Widget build(BuildContext c)=>Padding(padding:const EdgeInsets.only(bottom:8),child:Text(text,style:const TextStyle(fontSize:18,fontWeight:FontWeight.bold,color:ink)));}
-class TasksPage extends StatefulWidget{const TasksPage({super.key});@override State<TasksPage> createState()=>_TasksPageState();}
-class _TasksPageState extends State<TasksPage>{String filter='همه';@override Widget build(BuildContext context){final s=context.watch<HouseholdStore>();final list=s.tasks.where((t)=>filter=='همه'||(filter=='باز'?!t.done:t.done)).toList();return Scaffold(backgroundColor:cream,floatingActionButton:FloatingActionButton.extended(onPressed:()=>showDialog(context:context,builder:(_)=>const TaskDialog()),icon:const Icon(Icons.add),label:const Text('کار جدید')),body:ListView(padding:const EdgeInsets.all(16),children:[const SectionTitle('فهرست کارهای خانه'),Wrap(spacing:8,children:['همه','باز','انجام‌شده'].map((f)=>ChoiceChip(label:Text(f),selected:filter==f,onSelected:(_)=>setState(()=>filter=f))).toList()),const SizedBox(height:8),if(list.isEmpty)const Center(child:Padding(padding:EdgeInsets.all(30),child:Text('کاری در این فهرست نیست'))),...list.map((t)=>TaskTile(task:t))]));}}
-class TaskTile extends StatelessWidget{const TaskTile({super.key,required this.task});final HomeTask task;@override Widget build(BuildContext context)=>Card(elevation:0,margin:const EdgeInsets.symmetric(vertical:5),child:CheckboxListTile(value:task.done,onChanged:(_)=>context.read<HouseholdStore>().toggleTask(task),controlAffinity:ListTileControlAffinity.leading,title:Text(task.title,style:TextStyle(decoration:task.done?TextDecoration.lineThrough:null,fontWeight:FontWeight.w600)),subtitle:Text('${task.assignee}  •  ${task.category}  •  ${jdate(task.due)}'),secondary:Icon(task.priority=='بالا'?Icons.priority_high:Icons.task_alt,color:task.priority=='بالا'?orange:green)));}
-class TaskDialog extends StatefulWidget{const TaskDialog({super.key});@override State<TaskDialog> createState()=>_TaskDialogState();}
-class _TaskDialogState extends State<TaskDialog>{final form=GlobalKey<FormState>();final title=TextEditingController(),notes=TextEditingController();DateTime due=DateTime.now();String assignee='من',category='خانه',priority='معمولی';@override Widget build(BuildContext context)=>AlertDialog(title:const Text('افزودن کار'),content:SingleChildScrollView(child:Form(key:form,child:Column(mainAxisSize:MainAxisSize.min,children:[TextFormField(controller:title,decoration:const InputDecoration(labelText:'عنوان کار'),validator:(v)=>v==null||v.trim().isEmpty?'عنوان را وارد کنید':null),TextFormField(controller:notes,decoration:const InputDecoration(labelText:'یادداشت (اختیاری)')),DropdownButtonFormField(value:assignee,decoration:const InputDecoration(labelText:'مسئول'),items:['من','سارا','علی'].map((x)=>DropdownMenuItem(value:x,child:Text(x))).toList(),onChanged:(v)=>setState(()=>assignee=v!),),DropdownButtonFormField(value:category,decoration:const InputDecoration(labelText:'دسته‌بندی'),items:['خانه','خرید','مالی','سایر'].map((x)=>DropdownMenuItem(value:x,child:Text(x))).toList(),onChanged:(v)=>setState(()=>category=v!)),DropdownButtonFormField(value:priority,decoration:const InputDecoration(labelText:'اولویت'),items:['معمولی','بالا','کم'].map((x)=>DropdownMenuItem(value:x,child:Text(x))).toList(),onChanged:(v)=>setState(()=>priority=v!)),ListTile(contentPadding:EdgeInsets.zero,title:Text('موعد: ${jdate(due)}'),trailing:const Icon(Icons.calendar_month),onTap:()async{final d=await showDatePicker(context:context,initialDate:due,firstDate:DateTime.now().subtract(const Duration(days:365)),lastDate:DateTime.now().add(const Duration(days:3650)));if(d!=null)setState(()=>due=d);}),ListTile(contentPadding:EdgeInsets.zero,title:const Text('زمان یادآوری'),trailing:const Icon(Icons.access_time),onTap:()async{final t=await showTimePicker(context:context,initialTime:TimeOfDay.fromDateTime(due));if(t!=null)setState(()=>due=DateTime(due.year,due.month,due.day,t.hour,t.minute));})]))),actions:[TextButton(onPressed:()=>Navigator.pop(context),child:const Text('لغو')),FilledButton(onPressed:(){if(form.currentState!.validate()){context.read<HouseholdStore>().addTask(HomeTask(title:title.text.trim(),notes:notes.text,assignee:assignee,due:due,category:category,priority:priority));Navigator.pop(context);}},child:const Text('ثبت کار'))]);}
-class ShoppingPage extends StatelessWidget{const ShoppingPage({super.key});@override Widget build(BuildContext context){final s=context.watch<HouseholdStore>();return Scaffold(backgroundColor:cream,floatingActionButton:FloatingActionButton.extended(onPressed:()=>showDialog(context:context,builder:(_)=>const ItemDialog()),icon:const Icon(Icons.add),label:const Text('افزودن قلم')),body:ListView(padding:const EdgeInsets.all(16),children:[const SectionTitle('خریدهای این ماه'),Card(elevation:0,color:green,child:ListTile(leading:const Icon(Icons.receipt_long,color:Colors.white),title:const Text('جمع خریدهای انجام‌شده',style:TextStyle(color:Colors.white)),subtitle:Text(money(s.monthlySpend),style:const TextStyle(color:Colors.white,fontSize:20,fontWeight:FontWeight.bold)))),const SizedBox(height:12),...s.items.map((x)=>Card(elevation:0,child:CheckboxListTile(value:x.purchased,onChanged:(_)=>s.toggleItem(x),title:Text(x.name),subtitle:Text('${x.quantity}  •  ${money(x.purchased?x.actual:x.estimated)}${x.purchased?' (پرداخت‌شده)':''}'),controlAffinity:ListTileControlAffinity.leading)))]));}}
-class ItemDialog extends StatefulWidget{const ItemDialog({super.key});@override State<ItemDialog> createState()=>_ItemDialogState();}
-class _ItemDialogState extends State<ItemDialog>{final name=TextEditingController(),qty=TextEditingController(text:'۱ عدد'),price=TextEditingController();final keyForm=GlobalKey<FormState>();@override Widget build(BuildContext context)=>AlertDialog(title:const Text('افزودن به فهرست خرید'),content:Form(key:keyForm,child:Column(mainAxisSize:MainAxisSize.min,children:[TextFormField(controller:name,decoration:const InputDecoration(labelText:'نام کالا'),validator:(v)=>v==null||v.isEmpty?'نام کالا را وارد کنید':null),TextFormField(controller:qty,decoration:const InputDecoration(labelText:'مقدار / تعداد')),TextFormField(controller:price,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'قیمت تخمینی (تومان)'),validator:(v)=>double.tryParse(v??'')==null?'قیمت معتبر وارد کنید':null)])),actions:[TextButton(onPressed:()=>Navigator.pop(context),child:const Text('لغو')),FilledButton(onPressed:(){if(keyForm.currentState!.validate()){context.read<HouseholdStore>().addItem(ShoppingItem(name:name.text,quantity:qty.text,estimated:double.parse(price.text)));Navigator.pop(context);}},child:const Text('افزودن'))]);}}
-class CalendarPage extends StatelessWidget{const CalendarPage({super.key});@override Widget build(BuildContext context){final tasks=context.watch<HouseholdStore>().tasks..sort((a,b)=>a.due.compareTo(b.due));return ListView(padding:const EdgeInsets.all(16),children:[const SectionTitle('تقویم شمسی'),Card(elevation:0,color:green,child:Padding(padding:const EdgeInsets.all(20),child:Column(children:[const Icon(Icons.calendar_month,color:Colors.white,size:35),const SizedBox(height:8),Text(jdate(DateTime.now()),style:const TextStyle(color:Colors.white,fontSize:24,fontWeight:FontWeight.bold)),const Text('امروز',style:TextStyle(color:Colors.white70))]))),const SizedBox(height:16),const SectionTitle('موعدهای پیش‌رو'),...tasks.map((t)=>TaskTile(task:t))]);}}
-class HousePage extends StatelessWidget{const HousePage({super.key});@override Widget build(BuildContext context){final s=context.watch<HouseholdStore>();return ListView(padding:const EdgeInsets.all(16),children:[const SectionTitle('خانه و اعضا'),Card(elevation:0,child:ListTile(leading:const CircleAvatar(child:Icon(Icons.home)),title:Text(s.homeName,style:const TextStyle(fontWeight:FontWeight.bold)),subtitle:const Text('مدیر خانه: من'),trailing:IconButton(icon:const Icon(Icons.edit_outlined),onPressed:()=>showDialog(context:context,builder:(_)=>const HomeDialog(join:false))))),const SizedBox(height:10),Row(children:[Expanded(child:FilledButton.icon(onPressed:()=>showDialog(context:context,builder:(_)=>const HomeDialog(join:false)),icon:const Icon(Icons.add_home),label:const Text('ساخت خانه'))),const SizedBox(width:8),Expanded(child:OutlinedButton.icon(onPressed:()=>showDialog(context:context,builder:(_)=>const HomeDialog(join:true)),icon:const Icon(Icons.vpn_key),label:const Text('پیوستن'))]),const SizedBox(height:20),const SectionTitle('اعضای خانه'),...s.members.map((m)=>Card(elevation:0,child:ListTile(leading:CircleAvatar(backgroundColor:const Color(0xffe2ece2),child:Text(m.substring(0,1))),title:Text(m),subtitle:Text(m=='من'?'مدیر':'عضو'),trailing:const Icon(Icons.verified_user_outlined)))),const SizedBox(height:12),const Card(elevation:0,child:ListTile(leading:Icon(Icons.phone_android),title:Text('حالت محلی / نمایشی'),subtitle:Text('اطلاعات فقط تا زمان بسته‌شدن برنامه نگهداری می‌شود.')))]);}}
-class HomeDialog extends StatefulWidget{const HomeDialog({super.key,required this.join});final bool join;@override State<HomeDialog> createState()=>_HomeDialogState();}
-class _HomeDialogState extends State<HomeDialog>{final name=TextEditingController(),code=TextEditingController();final keyForm=GlobalKey<FormState>();@override Widget build(BuildContext context)=>AlertDialog(title:Text(widget.join?'پیوستن با کد دعوت':'ساخت خانه'),content:Form(key:keyForm,child:Column(mainAxisSize:MainAxisSize.min,children:[if(!widget.join)TextFormField(controller:name,decoration:const InputDecoration(labelText:'نام خانه'),validator:(v)=>v==null||v.isEmpty?'نام را وارد کنید':null),if(widget.join)TextFormField(controller:code,decoration:const InputDecoration(labelText:'کد دعوت'),validator:(v)=>v==null||v.isEmpty?'کد را وارد کنید':null),if(widget.join)const Padding(padding:EdgeInsets.only(top:12),child:Text('در حالت نمایشی هر کدی پذیرفته می‌شود؛ عضویت واقعی نیازمند اتصال به سرور است.'))])),actions:[TextButton(onPressed:()=>Navigator.pop(context),child:const Text('لغو')),FilledButton(onPressed:(){if(keyForm.currentState!.validate()){final s=context.read<HouseholdStore>();if(widget.join){s.setHome(s.homeName,'عضو جدید');}else{s.setHome(name.text.trim(),null);}Navigator.pop(context);ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(widget.join?'به خانه پیوستید':'خانه ساخته شد')));}},child:Text(widget.join?'پیوستن':'ساخت خانه'))]);}}
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => HouseholdStore()),
+      ],
+      child: const HamkhanehApp(),
+    ),
+  );
+}
+
+class HamkhanehApp extends StatelessWidget {
+  const HamkhanehApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: AppConfig.appName,
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: const Color(0xFF2E7D32),
+        fontFamily: 'Vazirmatn',
+      ),
+      home: const Directionality(
+        textDirection: TextDirection.rtl,
+        child: HomeScreen(),
+      ),
+    );
+  }
+}
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _currentIndex = 0;
+
+  final _pages = const [
+    ShoppingListPage(),
+    TasksPage(),
+    ExpensesPage(),
+    HousePage(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(AppConfig.appName),
+        centerTitle: true,
+      ),
+      body: _pages[_currentIndex],
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.shopping_cart_outlined),
+            selectedIcon: Icon(Icons.shopping_cart),
+            label: 'خریدها',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.check_circle_outline),
+            selectedIcon: Icon(Icons.check_circle),
+            label: 'وظایف',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.account_balance_wallet_outlined),
+            selectedIcon: Icon(Icons.account_balance_wallet),
+            label: 'هزینه‌ها',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'خانه',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ShoppingListPage extends StatelessWidget {
+  const ShoppingListPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.watch<HouseholdStore>();
+    return Scaffold(
+      body: s.items.isEmpty
+          ? const Center(child: Text('فهرست خرید خالی است.'))
+          : ListView.builder(
+              itemCount: s.items.length,
+              itemBuilder: (ctx, idx) {
+                final item = s.items[idx];
+                return CheckboxListTile(
+                  title: Text(
+                    item.name,
+                    style: TextStyle(
+                      decoration: item.isDone ? TextDecoration.lineThrough : null,
+                    ),
+                  ),
+                  subtitle: Text('تعداد: ${item.quantity} | قیمت تخمینی: ${item.estimated.toStringAsFixed(0)} تومان'),
+                  value: item.isDone,
+                  onChanged: (_) => s.toggleItem(idx),
+                );
+              },
+            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => showDialog(
+          context: context,
+          builder: (_) => const ItemDialog(),
+        ),
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class TasksPage extends StatelessWidget {
+  const TasksPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.watch<HouseholdStore>();
+    return Scaffold(
+      body: s.tasks.isEmpty
+          ? const Center(child: Text('وظیفه‌ای تعریف نشده است.'))
+          : ListView.builder(
+              itemCount: s.tasks.length,
+              itemBuilder: (ctx, idx) {
+                final task = s.tasks[idx];
+                return CheckboxListTile(
+                  title: Text(
+                    task.title,
+                    style: TextStyle(
+                      decoration: task.isDone ? TextDecoration.lineThrough : null,
+                    ),
+                  ),
+                  subtitle: Text('مسئول: ${task.assignee}'),
+                  value: task.isDone,
+                  onChanged: (_) => s.toggleTask(idx),
+                );
+              },
+            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => showDialog(
+          context: context,
+          builder: (_) => const TaskDialog(),
+        ),
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class ExpensesPage extends StatelessWidget {
+  const ExpensesPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.watch<HouseholdStore>();
+    return Scaffold(
+      body: Column(
+        children: [
+          Card(
+            margin: const EdgeInsets.all(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('مجموع هزینه‌ها:', style: TextStyle(fontSize: 16)),
+                  Text(
+                    '${s.totalExpenses.toStringAsFixed(0)} تومان',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: s.expenses.isEmpty
+                ? const Center(child: Text('هزینه‌ای ثبت نشده است.'))
+                : ListView.builder(
+                    itemCount: s.expenses.length,
+                    itemBuilder: (ctx, idx) {
+                      final exp = s.expenses[idx];
+                      return ListTile(
+                        title: Text(exp.title),
+                        subtitle: Text('پرداخت‌کننده: ${exp.payer}'),
+                        trailing: Text('${exp.amount.toStringAsFixed(0)} تومان'),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => showDialog(
+          context: context,
+          builder: (_) => const ExpenseDialog(),
+        ),
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class HousePage extends StatelessWidget {
+  const HousePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.watch<HouseholdStore>();
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const Text(
+          'خانه و اعضا',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Card(
+          elevation: 0,
+          child: ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.home)),
+            title: Text(s.homeName, style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: const Text('مدیر خانه: من'),
+            trailing: IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => showDialog(
+                context: context,
+                builder: (_) => const HomeDialog(join: false),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => const HomeDialog(join: false),
+                ),
+                icon: const Icon(Icons.add_home),
+                label: const Text('ساخت خانه'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => const HomeDialog(join: true),
+                ),
+                icon: const Icon(Icons.vpn_key),
+                label: const Text('پیوستن'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        const Text(
+          'اعضای خانه',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        ...s.members.map(
+          (m) => Card(
+            elevation: 0,
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: const Color(0xffe2ece2),
+                child: Text(m.isNotEmpty ? m.substring(0, 1) : '?'),
+              ),
+              title: Text(m),
+              subtitle: Text(m == 'من' ? 'مدیر' : 'عضو'),
+              trailing: const Icon(Icons.verified_user_outlined),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Card(
+          elevation: 0,
+          child: ListTile(
+            leading: Icon(Icons.phone_android),
+            title: Text('حالت محلی / نمایشی'),
+            subtitle: Text('اطلاعات فقط تا زمان بسته‌شدن برنامه نگهداری می‌شود.'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class ItemDialog extends StatefulWidget {
+  const ItemDialog({super.key});
+
+  @override
+  State<ItemDialog> createState() => _ItemDialogState();
+}
+
+class _ItemDialogState extends State<ItemDialog> {
+  final name = TextEditingController();
+  final qty = TextEditingController(text: '۱ عدد');
+  final price = TextEditingController();
+  final keyForm = GlobalKey<FormState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('افزودن به فهرست خرید'),
+      content: Form(
+        key: keyForm,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: name,
+              decoration: const InputDecoration(labelText: 'نام کالا'),
+              validator: (v) => v == null || v.isEmpty ? 'نام کالا را وارد کنید' : null,
+            ),
+            TextFormField(
+              controller: qty,
+              decoration: const InputDecoration(labelText: 'مقدار / تعداد'),
+            ),
+            TextFormField(
+              controller: price,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'قیمت تخمینی (تومان)'),
+              validator: (v) => double.tryParse(v ?? '') == null ? 'قیمت معتبر وارد کنید' : null,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('لغو'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (keyForm.currentState!.validate()) {
+              context.read<HouseholdStore>().addItem(
+                    ShoppingItem(
+                      name: name.text,
+                      quantity: qty.text,
+                      estimated: double.parse(price.text),
+                    ),
+                  );
+              Navigator.pop(context);
+            }
+          },
+          child: const Text('افزودن'),
+        ),
+      ],
+    );
+  }
+}
+
+class TaskDialog extends StatefulWidget {
+  const TaskDialog({super.key});
+
+  @override
+  State<TaskDialog> createState() => _TaskDialogState();
+}
+
+class _TaskDialogState extends State<TaskDialog> {
+  final title = TextEditingController();
+  final assignee = TextEditingController(text: 'من');
+  final keyForm = GlobalKey<FormState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('افزودن وظیفه جدید'),
+      content: Form(
+        key: keyForm,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: title,
+              decoration: const InputDecoration(labelText: 'عنوان وظیفه'),
+              validator: (v) => v == null || v.isEmpty ? 'عنوان را وارد کنید' : null,
+            ),
+            TextFormField(
+              controller: assignee,
+              decoration: const InputDecoration(labelText: 'مسئول انجام'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('لغو'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (keyForm.currentState!.validate()) {
+              context.read<HouseholdStore>().addTask(
+                    HomeTask(
+                      title: title.text,
+                      assignee: assignee.text,
+                    ),
+                  );
+              Navigator.pop(context);
+            }
+          },
+          child: const Text('افزودن'),
+        ),
+      ],
+    );
+  }
+}
+
+class ExpenseDialog extends StatefulWidget {
+  const ExpenseDialog({super.key});
+
+  @override
+  State<ExpenseDialog> createState() => _ExpenseDialogState();
+}
+
+class _ExpenseDialogState extends State<ExpenseDialog> {
+  final title = TextEditingController();
+  final amount = TextEditingController();
+  final payer = TextEditingController(text: 'من');
+  final keyForm = GlobalKey<FormState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('ثبت هزینه جدید'),
+      content: Form(
+        key: keyForm,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: title,
+              decoration: const InputDecoration(labelText: 'بابت چه چیزی؟'),
+              validator: (v) => v == null || v.isEmpty ? 'عنوان هزینه را وارد کنید' : null,
+            ),
+            TextFormField(
+              controller: amount,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'مبلغ (تومان)'),
+              validator: (v) => double.tryParse(v ?? '') == null ? 'مبلغ معتبر وارد کنید' : null,
+            ),
+            TextFormField(
+              controller: payer,
+              decoration: const InputDecoration(labelText: 'پرداخت‌کننده'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('لغو'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (keyForm.currentState!.validate()) {
+              context.read<HouseholdStore>().addExpense(
+                    HomeExpense(
+                      title: title.text,
+                      amount: double.parse(amount.text),
+                      payer: payer.text,
+                    ),
+                  );
+              Navigator.pop(context);
+            }
+          },
+          child: const Text('ثبت'),
+        ),
+      ],
+    );
+  }
+}
+
+class HomeDialog extends StatefulWidget {
+  final bool join;
+  const HomeDialog({super.key, required this.join});
+
+  @override
+  State<HomeDialog> createState() => _HomeDialogState();
+}
+
+class _HomeDialogState extends State<HomeDialog> {
+  final name = TextEditingController();
+  final code = TextEditingController();
+  final keyForm = GlobalKey<FormState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.join ? 'پیوستن با کد دعوت' : 'ساخت خانه'),
+      content: Form(
+        key: keyForm,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!widget.join)
+              TextFormField(
+                controller: name,
+                decoration: const InputDecoration(labelText: 'نام خانه'),
+                validator: (v) => v == null || v.isEmpty ? 'نام را وارد کنید' : null,
+              ),
+            if (widget.join)
+              TextFormField(
+                controller: code,
+                decoration: const InputDecoration(labelText: 'کد دعوت'),
+                validator: (v) => v == null || v.isEmpty ? 'کد را وارد کنید' : null,
+              ),
+            if (widget.join)
+              const Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: Text('در حالت نمایشی هر کدی پذیرفته می‌شود؛ عضویت واقعی نیازمند اتصال به سرور است.'),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('لغو'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (keyForm.currentState!.validate()) {
+              final s = context.read<HouseholdStore>();
+              if (widget.join) {
+                s.setHome(s.homeName, 'عضو جدید');
+              } else {
+                s.setHome(name.text.trim(), null);
+              }
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(widget.join ? 'به خانه پیوستید' : 'خانه ساخته شد')),
+              );
+            }
+          },
+          child: Text(widget.join ? 'پیوستن' : 'ساخت خانه'),
+        ),
+      ],
+    );
+  }
+}
