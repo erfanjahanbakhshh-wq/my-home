@@ -1,43 +1,88 @@
-name: Build Flutter APK
+name: Android APK
 
 on:
   push:
-    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up Java
-      uses: actions/setup-java@v5
-      with:
-        distribution: 'zulu'
-        java-version: '17'
+      - name: Locate Flutter project
+        shell: bash
+        run: |
+          set -euo pipefail
+          project_file="$(find . -name pubspec.yaml -not -path '*/.dart_tool/*' -print -quit)"
+          if [ -z "$project_file" ]; then
+            echo "Could not find pubspec.yaml"
+            exit 1
+          fi
+          project_dir="$(dirname "$project_file")"
+          echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
+          echo "Flutter project: $project_dir"
 
-    - name: Set up Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.19.6'
-        channel: 'stable'
-        cache: true
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
 
-    - name: Generate Platform Files
-      run: flutter create . --platforms=android --org com.hamkhaneh.app
-      working-directory: hamkhaneh_flutter_mvp
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
 
-    - name: Install Dependencies
-      run: flutter pub get
-      working-directory: hamkhaneh_flutter_mvp
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradle-wrapper.properties', '**/*.gradle', '**/*.gradle.kts') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
-    - name: Build APK
-      run: flutter build apk --release
-      working-directory: hamkhaneh_flutter_mvp
+      - name: Generate Android platform if absent
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          if [ ! -d android ]; then
+            flutter create --platforms=android .
+          fi
 
-    - name: Upload APK Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-apk
-        path: hamkhaneh_flutter_mvp/build/app/outputs/flutter-apk/app-release.apk
+      - name: Get Flutter dependencies
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter pub get
+
+      - name: Build release APK with retries
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          for attempt in 1 2 3 4; do
+            if flutter build apk --release; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 4 ]; then
+              echo "APK build failed after 4 attempts"
+              exit 1
+            fi
+
+            delay=$((attempt * 30))
+            echo "Build failed; retrying in ${delay}s"
+            sleep "$delay"
+          done
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
