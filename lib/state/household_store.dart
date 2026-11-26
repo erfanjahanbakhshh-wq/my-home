@@ -228,7 +228,7 @@ class HouseholdStore extends ChangeNotifier {
     final ids = _relationIds(house.data['members']);
     final ownerId = _relationId(house.data['owner']);
     if (ids.isEmpty && ownerId != null) ids.add(ownerId);
-    final expanded = house.expand['members'];
+    final expanded = house.expand?['members'];
     final namesById = <String, String>{};
     if (expanded is List) {
       for (final member in expanded) {
