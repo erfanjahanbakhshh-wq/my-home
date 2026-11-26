@@ -85,7 +85,7 @@ class _AuthState extends State<AuthPage> {
               Text(signup ? 'یه خونهٔ گرم، باهم می‌سازیم' : 'کارهای خانه، باهم ساده‌تره',
                 style: const TextStyle(fontSize: 16, color: Color(0xff61736b))),
               const SizedBox(height: 26),
-              Card(elevation: 2, shadowColor: green.withOpacity(.10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+              Card(elevation: 2, shadowColor: green.withValues(alpha: .10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
                 child: Padding(padding: const EdgeInsets.all(22), child: Column(children: [
                   if (signup) ...[TextField(controller: name, decoration: const InputDecoration(labelText: 'نام شما', prefixIcon: Icon(Icons.person_outline))), const SizedBox(height: 12), DropdownButtonFormField<String>(value: selectedRole, decoration: const InputDecoration(labelText: 'نقش شما در خونه'), items: HouseholdStore.householdRoles.map((role) => DropdownMenuItem(value: role, child: Text(role))).toList(), onChanged: (value) { if (value != null) setState(() => selectedRole = value); }), const SizedBox(height: 12)],
                   TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'ایمیل', prefixIcon: Icon(Icons.email_outlined))),
@@ -138,7 +138,7 @@ class HomePage extends StatelessWidget {
     return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
       Container(padding: const EdgeInsets.all(18), decoration: BoxDecoration(
         gradient: const LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: [green, Color(0xff0c625e)]),
-        borderRadius: BorderRadius.circular(26), boxShadow: [BoxShadow(color: green.withOpacity(.20), blurRadius: 18, offset: const Offset(0, 8))],
+        borderRadius: BorderRadius.circular(26), boxShadow: [BoxShadow(color: green.withValues(alpha: .20), blurRadius: 18, offset: const Offset(0, 8))],
       ), child: Row(children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('سلام و خوش اومدی 👋', style: TextStyle(color: Color(0xffd9f2e9), fontSize: 14)),
@@ -148,7 +148,7 @@ class HomePage extends StatelessWidget {
           const SizedBox(height: 9),
           Text('${s.homeName}  •  ${jd(DateTime.now())}', style: const TextStyle(color: Colors.white, fontSize: 13)),
           const SizedBox(height: 14),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7), decoration: BoxDecoration(color: Colors.white.withOpacity(.15), borderRadius: BorderRadius.circular(30)),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7), decoration: BoxDecoration(color: Colors.white.withValues(alpha: .15), borderRadius: BorderRadius.circular(30)),
             child: const Text('خونهٔ مرتب، حالِ بهتر ✨', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
         ])),
         const SizedBox(width: 12), brandMark(size: 82, radius: 22),
