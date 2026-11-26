@@ -98,7 +98,7 @@ class TaskReminderService {
     try {
       await _plugin.zonedSchedule(
         id, 'یادآوری کار خانه', '«${task.title}» فردا موعد دارد.', zonedTime, details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,  uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
         payload: task.id,
       );
     } on PlatformException {
