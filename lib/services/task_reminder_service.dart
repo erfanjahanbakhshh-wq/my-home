@@ -19,8 +19,8 @@ class TaskReminderService {
   Future<void> initialize() async {
     if (_initialized) return;
     tzdata.initializeTimeZones();
-    final localZone = await FlutterTimezone.getLocalTimezone();
-    tz.setLocalLocation(tz.getLocation(localZone.name));
+      final localZone = await FlutterTimezone.getLocalTimezone();
+  tz.setLocalLocation(tz.getLocation(localZone));
     const settings = InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
       iOS: DarwinInitializationSettings(),
@@ -96,6 +96,8 @@ class TaskReminderService {
       iOS: DarwinNotificationDetails(),
     );
     try {
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+  matchDateTimeComponents: DateTimeComponents.dateAndTime,
       await _plugin.zonedSchedule(
         id, 'یادآوری کار خانه', '«${task.title}» فردا موعد دارد.', zonedTime, details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
