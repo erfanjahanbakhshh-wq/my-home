@@ -228,15 +228,17 @@ class HouseholdStore extends ChangeNotifier {
     final ids = _relationIds(house.data['members']);
     final ownerId = _relationId(house.data['owner']);
     if (ids.isEmpty && ownerId != null) ids.add(ownerId);
-    final expanded = house.expand?['members'];
+       final expandedList = house.expand['members'];
     final namesById = <String, String>{};
-    if (expanded is List) {
-      for (final member in expanded) {
-        if (member is RecordModel) {
-          namesById[member.id] = _string(member.data['name'], fallback: 'عضو خانوار');
-        } else if (member is Map) {
-          final id = _string(member['id']);
-          if (id.isNotEmpty) namesById[id] = _string(member['name'], fallback: 'عضو خانوار');
+    if (expandedList is List) {
+      for (final m in expandedList) {
+        if (m is RecordModel) {
+          namesById[m.id] = _string(m.data['name'], fallback: 'عضو خانوار');
+        } else if (m is Map) {
+          final memberId = _string(m['id']);
+          if (memberId.isNotEmpty) {
+            namesById[memberId] = _string(m['name'], fallback: 'عضو خانوار');
+          }
         }
       }
     }
