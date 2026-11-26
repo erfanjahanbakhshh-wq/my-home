@@ -95,18 +95,20 @@ class TaskReminderService {
       ),
       iOS: DarwinNotificationDetails(),
     );
-    try {
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-  matchDateTimeComponents: DateTimeComponents.dateAndTime,
+        try {
       await _plugin.zonedSchedule(
         id, 'یادآوری کار خانه', '«${task.title}» فردا موعد دارد.', zonedTime, details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dateAndTime,
         payload: task.id,
       );
     } on PlatformException {
       await _plugin.zonedSchedule(
         id, 'یادآوری کار خانه', '«${task.title}» فردا موعد دارد.', zonedTime, details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dateAndTime,
         payload: task.id,
       );
     }
