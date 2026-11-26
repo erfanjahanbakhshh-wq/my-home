@@ -1,31 +1,55 @@
-name: Android APK
+name: Flutter Android Build
 
 on:
   push:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
+    name: Build release APK
     runs-on: ubuntu-latest
-    timeout-minutes: 45
 
     steps:
-      - name: Checkout
+      - name: Check out repository
         uses: actions/checkout@v4
 
       - name: Locate Flutter project
+        id: locate
         shell: bash
         run: |
           set -euo pipefail
-          project_file="$(find . -name pubspec.yaml -not -path '*/.dart_tool/*' -print -quit)"
-          if [ -z "$project_file" ]; then
-            echo "Could not find pubspec.yaml"
+
+          matches=()
+          while IFS= read -r pubspec; do
+            project_dir="$(dirname "$pubspec")"
+            if [[ -f "$project_dir/android/gradlew" \
+               && -f "$project_dir/android/gradle/wrapper/gradle-wrapper.properties" \
+               && -f "$project_dir/android/app/build.gradle" ]]; then
+              matches+=("$project_dir")
+            fi
+          done < <(
+            find . -maxdepth 6 -type f -name pubspec.yaml \
+              -not -path '*/.dart_tool/*' -print
+          )
+
+          if [[ "${#matches[@]}" -ne 1 ]]; then
+            echo "Expected exactly one Flutter project with an Android wrapper; found ${#matches[@]}." >&2
+            printf 'Candidates: %s\n' "${matches[*]:-none}" >&2
             exit 1
           fi
-          project_dir="$(dirname "$project_file")"
-          echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
-          echo "Flutter project: $project_dir"
+
+          project_dir="${matches[0]#./}"
+          [[ -n "$project_dir" ]] || project_dir="."
+          echo "project_root=$project_dir" >> "$GITHUB_OUTPUT"
+          echo "Selected Flutter project root: $project_dir"
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -37,52 +61,59 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          cache: true
 
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches/modules-2
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradle-wrapper.properties', '**/*.gradle', '**/*.gradle.kts') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
-      - name: Generate Android platform if absent
-        working-directory: ${{ env.PROJECT_DIR }}
+      - name: Pin and verify the Gradle wrapper
+        working-directory: ${{ steps.locate.outputs.project_root }}
         shell: bash
         run: |
-          if [ ! -d android ]; then
-            flutter create --platforms=android .
+          set -euo pipefail
+          GRADLE_VERSION="9.3.1"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          version = "9.3.1"
+          properties = Path("android/gradle/wrapper/gradle-wrapper.properties")
+          text = properties.read_text(encoding="utf-8")
+          url = rf"distributionUrl=https\://services.gradle.org/distributions/gradle-{version}-bin.zip"
+          if re.search(r"(?m)^distributionUrl=.*$", text):
+              text = re.sub(r"(?m)^distributionUrl=.*$", lambda _: url, text)
+          else:
+              text = text.rstrip() + "\n" + url + "\n"
+          properties.write_text(text, encoding="utf-8")
+
+          gradlew = Path("android/gradlew")
+          script = gradlew.read_text(encoding="utf-8")
+          script = re.sub(r"(?m)^VERSION=.*$", f"VERSION={version}", script)
+          gradlew.write_text(script, encoding="utf-8")
+          gradlew.chmod(gradlew.stat().st_mode | 0o111)
+          PY
+
+          echo "Wrapper properties:"
+          grep '^distributionUrl=' android/gradle/wrapper/gradle-wrapper.properties
+
+          echo "Running the project wrapper to verify its actual Gradle version:"
+          (cd android && ./gradlew --version)
+
+          actual_version="$(cd android && ./gradlew --version | awk '/^Gradle / { print $2; exit }')"
+          if [[ "$actual_version" != "$GRADLE_VERSION" ]]; then
+            echo "Expected Gradle $GRADLE_VERSION, but the wrapper ran $actual_version." >&2
+            exit 1
           fi
 
-      - name: Get Flutter dependencies
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: flutter pub get
-
-      - name: Build release APK with retries
-        working-directory: ${{ env.PROJECT_DIR }}
+      - name: Get dependencies, analyze, and build APK
+        working-directory: ${{ steps.locate.outputs.project_root }}
         shell: bash
         run: |
-          for attempt in 1 2 3 4; do
-            if flutter build apk --release; then
-              exit 0
-            fi
+          set -euo pipefail
+          flutter pub get
+          flutter analyze
+          flutter build apk --release
 
-            if [ "$attempt" -eq 4 ]; then
-              echo "APK build failed after 4 attempts"
-              exit 1
-            fi
-
-            delay=$((attempt * 30))
-            echo "Build failed; retrying in ${delay}s"
-            sleep "$delay"
-          done
-
-      - name: Upload APK
+      - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
+          name: hamkhaneh-release-apk
+          path: ${{ steps.locate.outputs.project_root }}/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
